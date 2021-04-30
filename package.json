@@ -1,0 +1,62 @@
+{
+  "name": "genshinmap-migrator",
+  "author": "MasterEric",
+  "license": "GNU GPL v3.0",
+  "version": "1.0.0",
+  "scripts": {
+    "install:dev": "yarn install --prod=false",
+    "install:prod": "yarn install --prod=true",
+    "install:check": "yarn install --check-files --prod=false",
+    "start:dev": "npx next dev",
+    "start:dev:parallel": "npx next dev -p 3001",
+    "start:prod": "npx next start",
+    "build": "npx next build",
+    "predeploy": "npm run build",
+    "lint": "eslint src --ext .ts,.tsx --ignore-pattern node_modules/",
+    "type-check": "tsc --pretty --noEmit",
+    "type-coverage": "typescript-coverage-report",
+    "test": "echo \"This test is blank. Do not remove it, as it is required by TravisCI.\""
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "yarn run type-check"
+    }
+  },
+  "lint-staged": {
+    "*.@(ts|tsx)": [
+      "yarn lint",
+      "yarn format"
+    ]
+  },
+  "dependencies": {
+    "@material-ui/core": "^4.11.4",
+    "next": "latest",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^11.2.5",
+    "@types/jest": "^26.0.20",
+    "@types/node": "^14.14.25",
+    "@types/react": "^17.0.1",
+    "@typescript-eslint/eslint-plugin": "^4.14.2",
+    "@typescript-eslint/parser": "^4.14.2",
+    "babel-jest": "^26.6.3",
+    "eslint": "^7.19.0",
+    "eslint-config-prettier": "^7.2.0",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-mui-unused-classes": "^1.0.3",
+    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-react": "^7.19.0",
+    "eslint-plugin-react-hooks": "^4.2.0",
+    "eslint-plugin-unicorn": "^31.0.0",
+    "husky": "^4.2.3",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^26.6.3",
+    "jest-watch-typeahead": "^0.6.1",
+    "lint-staged": "^10.0.10",
+    "prettier": "^2.0.2",
+    "typescript": "^4.1.3"
+  }
+}
