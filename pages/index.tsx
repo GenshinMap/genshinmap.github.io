@@ -69,7 +69,7 @@ const ActionPerformer = React.memo(() => {
     if (isLocal()) {
       setTimeout(async () => {
         const clientOnly = await import('../components/clientOnly');
-        clientOnly.redirectToUrl('https://teyvat.moe/');
+        clientOnly.redirectToUrl('https://teyvat.moe/map');
       }, MINIMUM_WAIT_TIME);
     }
   });

@@ -1,23 +1,44 @@
 import BifrostCors from './bifrost';
 
-export const handleCrossOrigin = async () => {
-  const bifrost = new BifrostCors('https://genshinmap.github.io');
-  if (window.location.href === 'http://localhost:3001/') {
-    //const bifrost = new BifrostCors('http://localhost:3000');
-    //console.log('Bifrost fetcher established.');
-    //await bifrost
-    //  .getLocalStorage('genshinmap-preferences')
-    //  .then(() => {
-    //    console.log('Fetched preferences.');
-    //  })
-    //  .catch(() => {
-    //    console.error('Error fetching preferences.');
-    //  });
+const IFRAME_ID = 'genshinmap-origin-bifrost';
+
+let bifrostClient = null;
+
+export const handleCrossOrigin = async (
+  onStorageAccessSuccess: () => void,
+  onStorageAccessFailure: () => void
+) => {
+  if (window.location.origin === 'http://localhost:3001') {
+    bifrostClient = new BifrostCors(
+      'http://localhost:3000/map',
+      false,
+      null,
+      onStorageAccessSuccess,
+      onStorageAccessFailure
+    );
+  } else if (window.location.origin === 'https://genshinmap.github.io') {
+    bifrostClient = new BifrostCors(
+      //'https://develop.teyvat.moe/map',
+      'https://teyvat.moe/map',
+      false,
+      null,
+      onStorageAccessSuccess,
+      onStorageAccessFailure
+    );
   } else {
-    // const bifrost = new BifrostCors('http://localhost:3001');
-    // console.log('Bifrost base established.');
+    console.log(`Unexpected source domain.`);
   }
 };
+
+export const handleCrossOriginManual = () => {
+  if (bifrostClient != null) {
+    console.log('bifrostClient retrieved!');
+    bifrostClient.askForStorageAccess();
+  } else {
+    console.log('bifrostClient was not retained.');
+  }
+};
+
 export const redirectToUrl = (url) => {
   // Move to a new URL, while destroying the page history.
   window.location.replace(url);

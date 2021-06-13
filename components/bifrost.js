@@ -1,9 +1,20 @@
-console.info('[BIFROST] Library loaded. Current frame URL: ', window.location.href);
+console.info(
+  `[BIFROST ${window.location.origin}] Library loaded. Current frame URL: ${window.location.href}`
+);
 class BifrostCors {
-  constructor(address, iframeBoolean = false, iframeID) {
+  constructor(
+    address,
+    iframeBoolean = false,
+    iframeID,
+    onStorageAccessSuccess = null,
+    onStorageAccessFailure = null
+  ) {
     this.bifrostResponse;
-    this.address = address;
+    this.address = new URL(address);
     this.socketListner;
+
+    this.onStorageAccessFailure = onStorageAccessFailure;
+    this.onStorageAccessSuccess = onStorageAccessSuccess;
 
     //==========================={ + Function Binding + }================================
     this.bifrostBridge = bifrostBridge.bind(this);
@@ -30,32 +41,23 @@ class BifrostCors {
       ifrm.setAttribute('width', '0px');
       ifrm.setAttribute('height', '0px');
       ifrm.setAttribute('style', 'position:absolute; top: -999px; display: none');
-      ifrm.setAttribute('src', this.address);
+      ifrm.setAttribute('src', this.address.href); // Use the full URL, not just the origin.
       document.body.appendChild(ifrm);
       this.midgard = document.getElementById('bifrost-cors');
     }
 
-    // Firefox.
-    document.hasStorageAccess().then((result) => {
-      if (!result) {
-        console.warn('[BIFROST] Storage access declined. Requesting access...');
-        document
-          .requestStorageAccess()
-          .then((result) => {
-            console.log('[BIFROST] Storage access granted. We can continue.');
-          })
-          .catch((result) => {
-            console.error("[BIFROST] Storage access rejected. We're screwed.");
-          });
-      }
-    });
+    this.storageAccess = false;
+    this.postponeStorageAccess = null;
+    this.askForStorageAccess();
 
     //======================={ + B I F R O S T - L I S T N E R + }=========================
 
     window.addEventListener('message', (e) => {
-      console.log('[BIFROST] Message received from the other side.');
-      if (e.origin === this.address) {
-        console.log('[BIFROST] Message was received from our destination.');
+      console.log(`[BIFROST ${window.location.origin}] Message received from the other side.`);
+      if (e.origin === this.address.origin) {
+        console.log(
+          `[BIFROST ${window.location.origin}] Message was received from our destination.`
+        );
         console.log(e);
         if (e.data.type.includes('request')) {
           let requestType = e.data.type.replace('request', 'postback').replace(/-/g, '_');
@@ -74,7 +76,7 @@ class BifrostCors {
         }
       } else {
         console.warn(
-          `[BIFROST] Unauthorized message host. Expected '${this.address}', got ${e.origin}. Ignoring message...`
+          `[BIFROST ${window.location.origin}] Unauthorized message host. Expected '${this.address.origin}', got ${e.origin}. Ignoring message...`
         );
       }
     });
@@ -83,10 +85,14 @@ class BifrostCors {
   //=========================={ + B I F R O S T - M E T H O D S + }=========================
 
   async getLocalStorage(key) {
-    console.log(`[BIFROST] Fetching local storage key: ${key}`);
     this.heimdall('get_localstorage', key);
     this.heimdall('get_response');
     return await this.bifrostResponse;
+  }
+
+  async sendLocalStorage(payload) {
+    // Send local storage unprompted. This is useful if the first attempt to send failed.
+    this.heimdall('postback_get_localstorage', payload);
   }
 
   async setLocalStorage(payload) {
@@ -144,6 +150,67 @@ class BifrostCors {
     this.heimdall('bifrost_socket_send_message', payload);
     this.heimdall('get_response');
     return await this.bifrostResponse;
+  }
+
+  async askForStorageAccess() {
+    if (document.hasStorageAccess != null) {
+      console.debug(
+        `[BIFROST ${window.location.origin}] Storage access needed in this browser. Checking access...`
+      );
+      document.hasStorageAccess().then((result) => {
+        if (!result) {
+          console.warn(
+            `[BIFROST ${window.location.origin}] Storage unavailable. Requesting access...`
+          );
+          document
+            .requestStorageAccess()
+            .then(() => {
+              console.debug(
+                `[BIFROST ${window.location.origin}] Storage access granted. We can continue.`
+              );
+              this.storageAccess = true;
+              if (this.postponeStorageAccess != null) {
+                console.debug(
+                  `[BIFROST ${window.location.origin}] Sending postponed storage response.`
+                );
+                console.debug(this.postponeStorageAccess);
+                this.postbackLocalstorage(this.postponeStorageAccess);
+                this.postponeStorageAccess = null;
+              } else {
+                console.debug(
+                  `[BIFROST ${window.location.origin}] Access granted, but no postponed storage response.`
+                );
+              }
+            })
+            .catch(() => {
+              console.error(
+                `[BIFROST ${window.location.origin}] Storage access rejected. We need user input.`
+              );
+              if (this.onStorageAccessFailure != null) {
+                this.onStorageAccessFailure();
+              }
+              this.storageAccess = false;
+            });
+        } else {
+          console.debug(`[BIFROST ${window.location.origin}] Storage available. We can continue.`);
+          this.storageAccess = true;
+          if (this.postponeStorageAccess != null) {
+            console.debug(
+              `[BIFROST ${window.location.origin}] Sending postponed storage response.`
+            );
+            this.postbackLocalstorage(this.postponeStorageAccess);
+            this.postponeStorageAccess = null;
+          } else {
+            console.debug(`[BIFROST ${window.location.origin}] NULL postponed storage response.`);
+          }
+        }
+      });
+    } else {
+      console.warn(
+        `[BIFROST ${window.location.origin}] Storage access not needed. We can continue.`
+      );
+      this.storageAccess = true;
+    }
   }
 
   //=============================={ + H E I M D A L L + }===================================
@@ -238,7 +305,6 @@ function bifrostBridge(event, payload, postback = false) {
   if (postback) {
     window.parent.postMessage(message, '*');
   } else {
-    console.log(`[BIFROST] Sending message '${event}'`);
     this.midgard && this.midgard.contentWindow.postMessage(message, '*');
   }
 }
@@ -246,7 +312,7 @@ function bifrostBridge(event, payload, postback = false) {
 function promiseConstructor(promiseType) {
   this.bifrostResponse = new Promise((resolve, reject) => {
     window.addEventListener('message', (e) => {
-      if (e.origin === this.address) {
+      if (e.origin === this.address.origin) {
         if (e.data.type && e.data.type === promiseType) {
           resolve(e.data.value);
         }
@@ -258,17 +324,22 @@ function promiseConstructor(promiseType) {
 
 function postbackLocalstorage(payload) {
   console.log('[BIFROST] postbackLocalStorage');
-  console.log(payload);
-  if (typeof payload === 'object') {
-    let data = [];
-    payload.map((key) => {
-      data.push(localStorage.getItem(key));
-    });
-    this.bifrostBridge('bifrost-response', data, true);
+  if (this.storageAccess) {
+    console.log('[BIFROST] postbackLocalStorage granted');
+    if (typeof payload === 'object') {
+      let data = [];
+      payload.map((key) => {
+        data.push(localStorage.getItem(key));
+      });
+      this.bifrostBridge('bifrost-response', data, true);
+    } else {
+      let data = localStorage.getItem(payload);
+      this.bifrostBridge('bifrost-response', data, true);
+    }
+    this.onStorageAccessSuccess(payload);
   } else {
-    console.log(localStorage);
-    let data = localStorage.getItem(payload);
-    this.bifrostBridge('bifrost-response', data, true);
+    console.log('[BIFROST] postbackLocalStorage denied, postponing...');
+    this.postponeStorageAccess = payload;
   }
 }
 

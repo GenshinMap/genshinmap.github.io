@@ -7,6 +7,7 @@
     "install:dev": "yarn install --prod=false",
     "install:prod": "yarn install --prod=true",
     "install:check": "yarn install --check-files --prod=false",
+    "export": "yarn build && npx next export",
     "start:dev": "npx next dev",
     "start:dev:parallel": "npx next dev -p 3001",
     "start:prod": "npx next start",
